@@ -2,173 +2,339 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panou Control - Catalog Școlar</title>
+    <title>Catalog Școlar - Panou Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .admin-requests-box {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .grade-btn {
+            width: 35px;
+            height: 35px;
+            font-weight: bold;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-dark bg-primary px-4 mb-4">
-        <span class="navbar-brand mb-0 h1">Catalog Școlar - Panou Control</span>
-        <a href="/logout" class="btn btn-light btn-sm">Deconectare</a>
+    <nav class="navbar navbar-dark bg-primary px-4">
+        <span class="navbar-brand mb-0 h1">Catalog Școlar</span>
+        <a href="/" class="btn btn-outline-light btn-sm">Deconectare</a>
     </nav>
 
-    <div class="container">
-        <div class="alert alert-info">
-            Bun venit, <strong>{{ user.nume }}</strong>! Rolul tău este: <strong>{{ user.rol }}</strong>.
+    <div class="container mt-4 mb-5">
+        <div class="alert alert-info" role="alert">
+            Bun venit, <strong>{{ username }}</strong>! Rolul tău este: 
+            {% if role == 'admin' %}
+                <span class="badge bg-danger">ADMIN (ROȘU)</span>
+            {% else %}
+                <span class="badge bg-dark">{{ role | upper }}</span>
+            {% endif %}
         </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        {% if user.rol == 'admin' %}
-            <h3 class="mt-4 mb-3">Panou Administrator</h3>
-            
-            <div class="row">
-                <!-- Adaugă Elev -->
-                <div class="col-md-6 mb-4">
-                    <div class="card shadow p-3">
-                        <h4>Adaugă Elev Nou</h4>
-                        <form action="/admin/creeaza_elev" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Nume Elev</label>
-                                <input type="text" class="form-control" name="nume" required>
+        <!-- 1. PANOUL ADMINULUI (Formulare separate) -->
+        {% if role == 'admin' %}
+        <div class="row">
+            <!-- Coloana Stângă: Creare Conturi (Părinte & Elev) -->
+            <div class="col-md-6 mb-4">
+                <div class="card p-4 shadow border-secondary mb-3">
+                    <h5 class="text-secondary">👨‍👩‍👦 1. Adaugă Cont Părinte</h5>
+                    <form action="/adauga_parinte" method="POST">
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <input type="email" name="email_parinte" class="form-control form-control-sm" required placeholder="Email părinte">
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Clasa</label>
-                                <input type="text" class="form-control" name="clasa" required>
+                            <div class="col-md-4">
+                                <input type="password" name="parola_parinte" class="form-control form-control-sm" required placeholder="Parolă">
                             </div>
-                            <button type="submit" class="btn btn-success">Adaugă Elev</button>
-                        </form>
-                    </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-secondary btn-sm w-100">Creează</button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
-                <!-- Adaugă Notă -->
-                <div class="col-md-6 mb-4">
-                    <div class="card shadow p-3">
-                        <h4>Adaugă Notă</h4>
-                        <form action="/admin/adauga_nota" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Elev</label>
-                                <select class="form-control" name="elev_id" required>
+                <div class="card p-4 shadow border-info mb-3">
+                    <h5 class="text-info">📚 2. Adaugă Cont Elev</h5>
+                    <form action="/adauga_cont_elev" method="POST">
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <input type="email" name="email_elev_cont" class="form-control form-control-sm" required placeholder="Email elev">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="parola_elev_cont" class="form-control form-control-sm" required placeholder="Parolă">
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-info btn-sm w-100 text-white">Creează</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card p-4 shadow border-danger">
+                    <h5 class="text-danger">🎒 3. Adaugă Elev în Catalog & Leagă Părinte/Cont</h5>
+                    <form action="/adauga_elev_catalog" method="POST">
+                        <div class="mb-2">
+                            <input type="text" name="nume_elev" class="form-control form-control-sm" required placeholder="Nume și Prenume Elev (ex: Popa Andrei)">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-0">Cont Login Elev (Opțional):</label>
+                            <select name="user_id" class="form-select form-select-sm">
+                                <option value="">-- Fără cont de login --</option>
+                                {% for eu in elevi_utilizatori %}
+                                <option value="{{ eu.id }}">{{ eu.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted mb-0">Cont Părinte (Opțional):</label>
+                            <select name="parinte_id" class="form-select form-select-sm">
+                                <option value="">-- Fără părinte --</option>
+                                {% for p in parinti %}
+                                <option value="{{ p.id }}">{{ p.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100">Adaugă în Catalog</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Coloana Dreaptă: Note și Absențe -->
+            <div class="col-md-6 mb-4">
+                <div class="card p-4 shadow border-primary mb-3">
+                    <h5 class="text-primary">📝 Adaugă Notă (1-10)</h5>
+                    <form action="/adauga_nota" method="POST">
+                        <div class="mb-2">
+                            <select name="elev_id" class="form-select form-select-sm" required>
+                                <option value="">-- Alege Elevul --</option>
+                                {% for e in elevi %}
+                                <option value="{{ e.id }}">{{ e.nume }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" name="materie" class="form-control form-control-sm" required placeholder="Materie (ex: Matematică)">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted mb-1">Alege nota:</label><br>
+                            <div class="btn-group flex-wrap" role="group">
+                                {% for i in range(1, 11) %}
+                                <input type="radio" class="btn-check" name="valoare" id="grade{{ i }}" value="{{ i }}" {% if i == 10 %}checked{% endif %}>
+                                <label class="btn btn-outline-primary grade-btn m-1 rounded" for="grade{{ i }}">{{ i }}</label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Salvează Nota</button>
+                    </form>
+                </div>
+
+                <div class="card p-4 shadow border-warning">
+                    <h5 class="text-warning text-dark">❌ Adaugă Absență</h5>
+                    <form action="/adauga_absenta" method="POST">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <select name="elev_id" class="form-select form-select-sm" required>
+                                    <option value="">-- Alege Elevul --</option>
                                     {% for e in elevi %}
-                                        <option value="{{ e.id }}">{{ e.nume }} ({{ e.clasa }})</option>
+                                    <option value="{{ e.id }}">{{ e.nume }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Materie</label>
-                                <input type="text" class="form-control" name="materie" required>
+                            <div class="col-md-6">
+                                <input type="text" name="materie" class="form-control form-control-sm" required placeholder="Materie">
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Notă (valoare)</label>
-                                <input type="number" class="form-control" name="valoare" min="1" max="10" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Adaugă Notă</button>
-                        </form>
-                    </div>
+                        </div>
+                        <div class="mb-3">
+                            <input type="date" name="data" class="form-control form-control-sm" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100">Pune Absență</button>
+                    </form>
                 </div>
             </div>
+        </div>
 
-            <!-- Cereri Înregistrare Utilizatori -->
-            <div class="card shadow p-3 mb-4">
-                <h4>Cereri de Înregistrare în Așteptare</h4>
-                {% if cereri %}
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Nume</th>
-                                <th>Email</th>
-                                <th>Rol Solicitat</th>
-                                <th>Acțiuni</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in cereri %}
-                            <tr>
-                                <td>{{ c.nume }}</td>
-                                <td>{{ c.email }}</td>
-                                <td>{{ c.rol }}</td>
-                                <td>
-                                    <form action="/admin/aprobe_user/{{ c.id }}" method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-success">Aprobă</button>
-                                    </form>
-                                    <a href="/admin/respinge_user/{{ c.id }}" class="btn btn-sm btn-danger">Respinge</a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="text-muted">Nu există cereri în așteptare momentan.</p>
-                {% endif %}
-            </div>
-
-            <!-- Lista Elevi & Situație -->
-            <div class="card shadow p-3 mb-4">
-                <h4>Elevi înregistrați în Catalog</h4>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Nume</th>
-                            <th>Clasa</th>
-                            <th>Note</th>
-                            <th>Absențe</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for e in elevi %}
-                        <tr>
-                            <td>{{ e.nume }}</td>
-                            <td>{{ e.clasa }}</td>
-                            <td>
-                                {% for n in e.note %}
-                                    <span class="badge bg-secondary me-1">{{ n.materie }}: {{ n.valoare }}</span>
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% for a in e.absente %}
-                                    <span class="badge {% if a.motivata %}bg-success{% else %}bg-warning{% endif %} me-1">
-                                        {{ a.materie }} {% if a.motivata %}(Motivată){% else %}(Nemotivată){% endif %}
-                                    </span>
-                                {% endfor %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-        {% else %}
-            <div class="card shadow p-4">
-                <h4>Situația ta școlară</h4>
-                {% if elev %}
-                    <p><strong>Nume:</strong> {{ elev.nume }} | <strong>Clasa:</strong> {{ elev.clasa }}</p>
-                    <hr>
-                    <h5>Note:</h5>
-                    <ul>
-                        {% for n in elev.note %}
-                            <li>{{ n.materie }}: <strong>{{ n.valoare }}</strong></li>
-                        {% endfor %}
-                    </ul>
-                    <h5>Absențe:</h5>
-                    <ul>
-                        {% for a in elev.absente %}
-                            <li>{{ a.materie }} - {% if a.motivata %}Motivată{% else %}Nemotivată{% endif %}</li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-muted">Contul tău de elev/părinte nu a fost încă legat de un elev de către administrator.</p>
-                {% endif %}
-            </div>
+        <!-- LISTA GENERALĂ ELEVI -->
+        <div class="card p-4 shadow mb-4">
+            <h4 class="text-dark">📋 Catalog General (Toți Elevii și Situația Lor)</h4>
+            <hr>
+            {% if elevi %}
+                <div class="row">
+                    {% for elev in elevi %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-white border p-3 shadow-sm h-100">
+                            <h5 class="text-primary mb-2">👤 {{ elev.nume }}</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <h6 class="text-success small fw-bold">Note:</h6>
+                                    {% if elev.note %}
+                                        <ul class="list-group list-group-flush small">
+                                            {% for n in elev.note %}
+                                            <li class="list-group-item d-flex justify-content-between px-1 py-1">
+                                                <span>{{ n.materie }}</span>
+                                                <span class="badge bg-success">Nota {{ n.valoare }}</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted small mb-0">Nicio notă.</p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-6">
+                                    <h6 class="text-danger small fw-bold">Absențe:</h6>
+                                    {% if elev.absente %}
+                                        <ul class="list-group list-group-flush small">
+                                            {% for a in elev.absente %}
+                                            <li class="list-group-item d-flex justify-content-between px-1 py-1">
+                                                <span>{{ a.materie }}</span>
+                                                <span class="badge bg-danger">{{ a.data }}</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted small mb-0">Nicio absență.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted">Nu există elevi adăugați în sistem momentan.</p>
+            {% endif %}
+        </div>
         {% endif %}
+
+        <!-- 2. VIZUALIZARE ELEV -->
+        {% if role == 'elev' %}
+        <div class="card p-4 shadow mb-4">
+            <h4 class="text-primary">📚 Situația Mea Școlară (Elev)</h4>
+            <hr>
+            {% if user.profil_elev %}
+                <h5>Elev: <strong>{{ user.profil_elev.nume }}</strong></h5>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="text-success">Notele tale:</h6>
+                        {% if user.profil_elev.note %}
+                            <ul class="list-group mb-3">
+                                {% for n in user.profil_elev.note %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ n.materie }}
+                                    <span class="badge bg-success rounded-pill">Nota {{ n.valoare }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted">Nu ai note înregistrate momentan.</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger">Absențele tale:</h6>
+                        {% if user.profil_elev.absente %}
+                            <ul class="list-group mb-3">
+                                {% for a in user.profil_elev.absente %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ a.materie }}
+                                    <span class="badge bg-danger rounded-pill">{{ a.data }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted">Nu ai absențe înregistrate.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">Contul tău nu este asociat încă unui profil de elev de către administrator.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 3. VIZUALIZARE PĂRINTE -->
+        {% if role == 'parinte' %}
+        <div class="card p-4 shadow mb-4">
+            <h4 class="text-secondary">👨‍👩‍👦 Situația Școlară a Copiilor Tăi</h4>
+            <hr>
+            {% if user.elevi_parinte %}
+                {% for copil in user.elevi_parinte %}
+                <div class="card mt-3 p-3 bg-white border">
+                    <h5>Nume Copil: <span class="text-primary">{{ copil.nume }}</span></h5>
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <p class="mb-1 text-success fw-bold">Note:</p>
+                            {% if copil.note %}
+                                <ul class="list-group mb-3">
+                                    {% for n in copil.note %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ n.materie }}
+                                        <span class="badge bg-success rounded-pill">Nota {{ n.valoare }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small">Nicio notă înregistrată.</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1 text-danger fw-bold">Absențe:</p>
+                            {% if copil.absente %}
+                                <ul class="list-group mb-3">
+                                    {% for a in copil.absente %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        {{ a.materie }}
+                                        <span class="badge bg-danger rounded-pill">{{ a.data }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small">Nicio absență înregistrată.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-warning">Nu ai niciun elev asociat contului tău de părinte momentan. Roagă administratorul să te lege de un elev!</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
     </div>
+
+    <!-- PANOUL PLUTITOR DIN DREAPTA JOS PENTRU ADMIN (CERERI CONTURI NOI) -->
+    {% if role == 'admin' and cereri %}
+    <div class="card admin-requests-box border-warning">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <strong>🔔 Cereri conturi noi</strong>
+            <span class="badge bg-dark">{{ cereri | length }}</span>
+        </div>
+        <div class="card-body bg-white" style="max-height: 250px; overflow-y: auto;">
+            <ul class="list-group list-group-flush">
+                {% for c in cereri %}
+                <li class="list-group-item d-flex flex-column gap-1 py-2">
+                    <div class="small">
+                        <strong>{{ c.username }}</strong><br>
+                        Rol cerut: <span class="badge bg-secondary">{{ c.role }}</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <a href="/aprobare/{{ c.id }}/accept" class="btn btn-success">Acceptă</a>
+                        <a href="/aprobare/{{ c.id }}/decline" class="btn btn-danger">Respinge</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
 </body>
 </html>
