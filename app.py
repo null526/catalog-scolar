@@ -1,31 +1,36 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///catalog.db'
+app.secret_key = 'cheie_secreta_catalog'
+
+# Configurare bază de date SQLite
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'catalog.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.secret_key = 'cheie_secreta_pentru_sesiune'
 
 db = SQLAlchemy(app)
 
+# Modele Bază de Date
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'admin', 'profesor', 'elev', 'parinte'
-    is_approved = db.Column(db.Boolean, default=True)
+    nume = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    parola = db.Column(db.String(200), nullable=False)
+    rol = db.Column(db.String(20), nullable=False, default='elev') # 'admin', 'elev', 'parinte'
+    aprobat = db.Column(db.Boolean, default=False)
     
-    elevi_parinte = db.relationship('Elev', foreign_keys='Elev.parinte_id', backref='parinte_user', lazy=True)
-    profil_elev = db.relationship('Elev', foreign_keys='Elev.user_id', backref='cont_utilizator', uselist=False, lazy=True)
+    # Relație pentru părinte -> elev
+    elev_id = db.Column(db.Integer, db.ForeignKey('elev.id'), nullable=True)
 
 class Elev(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nume = db.Column(db.String(100), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    parinte_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    
-    note = db.relationship('Nota', backref='elev', lazy=True, cascade="all, delete-orphan")
-    absente = db.relationship('Absenta', backref='elev', lazy=True, cascade="all, delete-orphan")
+    clasa = db.Column(db.String(20), nullable=False)
+    note = db.relationship('Nota', backref='elev', cascade='all, delete-orphan')
+    absente = db.relationship('Absenta', backref='elev', cascade='all, delete-orphan')
 
 class Nota(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -35,136 +40,195 @@ class Nota(db.Model):
 
 class Absenta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.String(20), nullable=False)
     materie = db.Column(db.String(50), nullable=False)
     motivata = db.Column(db.Boolean, default=False)
     elev_id = db.Column(db.Integer, db.ForeignKey('elev.id'), nullable=False)
 
-@app.route('/', methods=['GET', 'POST'])
+# Creare baze de date & Admin automat la pornire
+with app.app_context():
+    db.create_all()
+    # Creează contul de admin dacă nu există
+    admin_existent = User.query.filter_by(email='yanys2889@gmail.com').first()
+    if not admin_existent:
+        admin = User(
+            nume='Admin',
+            email='yanys2889@gmail.com',
+            parola=generate_password_hash('yanyseboss12ez'),
+            rol='admin',
+            aprobat=True
+        )
+        db.session.add(admin)
+        db.session.commit()
+
+# Rute
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user_input = request.form.get('username')
-        pass_input = request.form.get('password')
+        email = request.form['email']
+        parola = request.form['parola']
+        user = User.query.filter_by(email=email).first()
         
-        user = User.query.filter_by(username=user_input, password=pass_input).first()
-        if user:
-            if not user.is_approved and user.role != 'admin':
-                return "Contul tău așteaptă aprobarea administratorului!"
+        if user and check_password_hash(user.parola, parola):
+            if not user.aprobat:
+                flash('Contul tău așteaptă aprobarea administratorului.', 'warning')
+                return redirect(url_for('login'))
             
-            cereri_in_asteptare = User.query.filter_by(is_approved=False).all() if user.role == 'admin' else []
-            toti_elevii = Elev.query.all() if user.role == 'admin' else []
-            toti_parintii = User.query.filter_by(role='parinte').all()
-            toti_elevii_utilizatori = User.query.filter_by(role='elev').all()
-            
-            return render_template('dashboard.html', 
-                                 user=user,
-                                 username=user.username, 
-                                 role=user.role, 
-                                 cereri=cereri_in_asteptare,
-                                 elevi=toti_elevii,
-                                 parinti=toti_parintii,
-                                 elevi_utilizatori=toti_elevii_utilizatori)
+            session['user_id'] = user.id
+            session['rol'] = user.rol
+            session['nume'] = user.nume
+            return redirect(url_for('dashboard'))
         else:
-            return "Date incorecte! Încearcă din nou."
+            flash('Email sau parolă incorectă!', 'danger')
             
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        role = request.form.get('role')
+        nume = request.form['nume']
+        email = request.form['email']
+        parola = request.form['parola']
+        rol_solicitat = request.form.get('rol', 'elev')
         
-        existing = User.query.filter_by(username=username).first()
-        if existing:
-            return "Acest utilizator există deja!"
+        if User.query.filter_by(email=email).first():
+            flash('Acest e-mail este deja înregistrat!', 'danger')
+            return redirect(url_for('register'))
             
-        nou_user = User(username=username, password=password, role=role, is_approved=False)
-        db.session.add(nou_user)
+        is_admin = (email == 'yanys2889@gmail.com')
+        
+        noul_user = User(
+            nume=nume,
+            email=email,
+            parola=generate_password_hash(parola),
+            rol='admin' if is_admin else rol_solicitat,
+            aprobat=True if is_admin else False
+        )
+        db.session.add(noul_user)
         db.session.commit()
-        return "Cont înregistrat cu succes! Așteaptă aprobarea administratorului. <a href='/'>Mergi la Login</a>"
+        
+        if is_admin:
+            flash('Cont Admin creat și aprobat automat! Te poți conecta.', 'success')
+        else:
+            flash('Cererii tale i s-a înregistrat. Așteaptă aprobarea adminului.', 'info')
+            
+        return redirect(url_for('login'))
         
     return render_template('register.html')
 
-@app.route('/aprobare/<int:user_id>/<action>')
-def aprobare(user_id, action):
-    user = User.query.get_or_404(user_id)
-    if action == 'accept':
-        user.is_approved = True
-        db.session.commit()
-    elif action == 'decline':
-        db.session.delete(user)
-        db.session.commit()
-    return redirect(url_for('login'))
-
-@app.route('/adauga_parinte', methods=['POST'])
-def adauga_parinte():
-    email = request.form.get('email_parinte')
-    parola = request.form.get('parola_parinte')
-    cont_parinte = User(username=email, password=parola, role='parinte', is_approved=True)
-    db.session.add(cont_parinte)
-    db.session.commit()
-    return redirect(url_for('login'))
-
-@app.route('/adauga_cont_elev', methods=['POST'])
-def adauga_cont_elev():
-    email = request.form.get('email_elev_cont')
-    parola = request.form.get('parola_elev_cont')
-    cont_elev = User(username=email, password=parola, role='elev', is_approved=True)
-    db.session.add(cont_elev)
-    db.session.commit()
-    return redirect(url_for('login'))
-
-@app.route('/adauga_elev_catalog', methods=['POST'])
-def adauga_elev_catalog():
-    nume = request.form.get('nume_elev')
-    user_id = request.form.get('user_id')
-    parinte_id = request.form.get('parinte_id')
+@app.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user = User.query.get(session['user_id'])
     
-    nou_elev = Elev(
-        nume=nume, 
-        user_id=user_id if user_id else None, 
-        parinte_id=parinte_id if parinte_id else None
-    )
-    db.session.add(nou_elev)
-    db.session.commit()
-    return redirect(url_for('login'))
+    if user.rol == 'admin':
+        elevi = Elev.query.all()
+        cereri = User.query.filter_by(aprobat=False).all()
+        return render_template('dashboard.html', user=user, elevi=elevi, cereri=cereri)
+        
+    elif user.rol == 'elev':
+        elev = Elev.query.filter_by(nume=user.nume).first()
+        return render_template('dashboard.html', user=user, elev=elev)
+        
+    elif user.rol == 'parinte':
+        elev = Elev.query.get(user.elev_id) if user.elev_id else None
+        return render_template('dashboard.html', user=user, elev=elev)
 
-@app.route('/adauga_nota', methods=['POST'])
+@app.route('/admin/creeaza_elev', methods=['POST'])
+def creeaza_elev():
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    nume = request.form['nume']
+    clasa = request.form['clasa']
+    
+    noul_elev = Elev(nume=nume, clasa=clasa)
+    db.session.add(noul_elev)
+    db.session.commit()
+    flash(f'Elevul {nume} a fost adăugat!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/admin/adauga_nota', methods=['POST'])
 def adauga_nota():
-    elev_id = request.form.get('elev_id')
-    materie = request.form.get('materie')
-    valoare = request.form.get('valoare')
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    elev_id = request.form['elev_id']
+    materie = request.form['materie']
+    valoare = int(request.form['valoare'])
     
-    noua_nota = Nota(valoare=int(valoare), materie=materie, elev_id=elev_id)
-    db.session.add(noua_nota)
+    nota = Nota(valoare=valoare, materie=materie, elev_id=elev_id)
+    db.session.add(nota)
     db.session.commit()
-    return redirect(url_for('login'))
+    flash('Notă adăugată cu succes!', 'success')
+    return redirect(url_for('dashboard'))
 
-@app.route('/adauga_absenta', methods=['POST'])
+@app.route('/admin/adauga_absenta', methods=['POST'])
 def adauga_absenta():
-    elev_id = request.form.get('elev_id')
-    materie = request.form.get('materie')
-    data = request.form.get('data')
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    elev_id = request.form['elev_id']
+    materie = request.form['materie']
     
-    noua_absenta = Absenta(data=data, materie=materie, elev_id=elev_id, motivata=False)
-    db.session.add(noua_absenta)
+    absenta = Absenta(materie=materie, elev_id=elev_id)
+    db.session.add(absenta)
     db.session.commit()
+    flash('Absență adăugată cu succes!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/admin/motiveaza_absenta/<int:id>')
+def motiveaza_absenta(id):
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    absenta = Absenta.query.get(id)
+    if absenta:
+        absenta.motivata = True
+        db.session.commit()
+        flash('Absență motivată!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/admin/aprobe_user/<int:id>', methods=['POST'])
+def aprobe_user(id):
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    u = User.query.get(id)
+    if u:
+        u.aprobat = True
+        u.rol = request.form.get('rol', u.rol)
+        elev_id = request.form.get('elev_id')
+        if elev_id:
+            u.elev_id = int(elev_id)
+        db.session.commit()
+        flash('Utilizator aprobat cu succes!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/admin/respinge_user/<int:id>')
+def respinge_user(id):
+    if session.get('rol') != 'admin':
+        return redirect(url_for('dashboard'))
+        
+    u = User.query.get(id)
+    if u:
+        db.session.delete(u)
+        db.session.commit()
+        flash('Cerere respinsă și ștearsă.', 'warning')
+    return redirect(url_for('dashboard'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Te-ai deconectat cu succes.', 'info')
     return redirect(url_for('login'))
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        admin_user = User.query.filter_by(username='yanys2889@gmail.com').first()
-        if not admin_user:
-            admin_user = User(
-                username='yanys2889@gmail.com', 
-                password='yanyseboss12ez', 
-                role='admin', 
-                is_approved=True
-            )
-            db.session.add(admin_user)
-            db.session.commit()
-            
-    app.run(debug=True, port=8080)
+    app.run(debug=True)
