@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog Școlar Electronic</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)), 
+                        url('https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1920&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px 0 80px 0;
+        }
+
+        .login-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 35px 30px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            text-align: center;
+        }
+
+        .logo-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .logo-catalog { color: #2b78c5; }
+        .logo-scolar { color: #f2a900; }
+        .logo-ro { color: #50b848; }
+
+        .subtitle {
+            color: #777;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+
+        .role-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            background-color: #f7f7f8;
+            border: 1px solid #e2e4e8;
+            border-radius: 8px;
+            color: #333;
+            font-weight: 700;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+
+        .role-btn:hover {
+            background-color: #eaecef;
+            border-color: #ccc;
+            transform: translateY(-1px);
+            color: #111;
+        }
+
+        .role-btn i {
+            font-size: 1.2rem;
+            margin-right: 12px;
+            color: #666;
+        }
+
+        .contact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #0d6efd;
+            font-size: 0.85rem;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .cookie-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #111827;
+            color: #ffffff;
+            padding: 12px 20px;
+            font-size: 0.82rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            z-index: 999;
+        }
+
+        .btn-cookie {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="logo-title">
+            <span class="logo-catalog">Catalog</span><span class="logo-scolar">Școlar</span><span class="logo-ro">.ro</span>
+        </div>
+        <div class="subtitle">alege cum vrei să te autentifici:</div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show p-2 fs-7 mb-3 text-start" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close p-2" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST">
+            <div class="mb-3 text-start">
+                <input type="email" class="form-control" name="email" placeholder="Adresă E-mail" required>
+            </div>
+            <div class="mb-3 text-start">
+                <input type="password" class="form-control" name="parola" placeholder="Parolă" required>
+            </div>
+
+            <button type="submit" class="role-btn">
+                <i class="bi bi-person-fill"></i> Autentificare / Intra în Cont
+            </button>
+        </form>
+
+        <div class="d-flex justify-content-between mt-3">
+            <a href="/register" class="text-decoration-none small text-primary fw-bold">Nu ai cont? Înregistrează-te</a>
+        </div>
+
+        <hr class="my-3">
+
+        <a href="mailto:suport@catalog-scolar.ro" class="contact-link">
+            <i class="bi bi-envelope"></i> Trimite mesaj
+        </a>
+    </div>
+
+    <div class="cookie-banner" id="cookieBanner">
+        <div>
+            Folosim <strong>cookie-uri strict necesare</strong> pentru funcționarea site-ului (autentificare, securitate) și protecție împotriva spam-ului.
+        </div>
+        <button class="btn-cookie ms-3" onclick="document.getElementById('cookieBanner').style.display='none'">OK, am înțeles</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
